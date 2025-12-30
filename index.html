@@ -1,670 +1,1114 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Physics Audio Tool</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 10px;
-        }
-        .tabs {
-            display: flex;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
-        }
-        .tabs button {
-            padding: 10px 20px;
-            margin-right: 5px;
-            font-size: 1em;
-            cursor: pointer;
-        }
-        .tabs button.active {
-            background-color: #ccc;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .tab-content h2 {
-            margin-top: 0;
-        }
-        label {
-            display: block;
-            margin: 8px 0;
-        }
-        input[type="range"] {
-            vertical-align: middle;
-            width: 150px;
-        }
-        input[type="number"] {
-            width: 60px;
-        }
-        button {
-            font-size: 1em;
-            padding: 8px 12px;
-            margin: 4px;
-        }
-        .freq-controls {
-            display: flex;
-            justify-content: space-around;
-            margin: 10px 0;
-        }
-        .freq-controls div {
-            flex: 1;
-            text-align: center;
-        }
-        .freq-controls button {
-            margin: 2px;
-            padding: 4px 8px;
-        }
-        .preset-buttons {
-            display: flex;
-            justify-content: space-around;
-        }
-        .preset-buttons div {
-            flex: 1;
-            text-align: center;
-        }
-        .preset-buttons button {
-            margin: 2px;
-            padding: 4px 8px;
-        }
-　　　　.wave-type-btn {
-    	　　padding: 6px 10px;
-    	　　margin: 2px;
-    	　　font-size: 1em;
-    	　　border: 1px solid #ccc;
-    	　　background-color: #eee;
-    	　　cursor: pointer;
-  　　　}
-  .wave-type-btn.active {
-    background-color: #007bff;
-    color: white;
-    border-color: #0056b3;
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>高校物理実験用音声ツール</title>
+  <style>
+    body { font-family: sans-serif; margin: 1em; }
+    h1 { font-size: 1.5em; margin-bottom: 0.5em; }
+    .tabs { display: flex; flex-wrap: wrap; margin-bottom: 1em; }
+    .tab-button {
+      flex: none;
+      margin: 2px;
+      padding: 0.5em 1em;
+      font-size: 1em;
+      cursor: pointer;
+      background: #ddd;
+      border: none;
+      border-radius: 4px;
+    }
+    .tab-button.active { background: #bbb; font-weight: bold; }
+
+    .mode-panel { display: none; }
+    .mode-panel.active { display: block; }
+
+    .control-group { margin: 1em 0; }
+    label { margin-right: 0.5em; }
+    input[type=range] { vertical-align: middle; margin: 0 0.5em; }
+
+    /* まとめて数字＋単位を横並びにする */
+  .freq-display {
+    font-family: monospace;
+    font-size: 1.2em;
+    display: inline-flex;      /* ← flex に */
+    align-items: center;
+    gap: 0.4em;
+    margin: 0.2em 0;
+    white-space: nowrap;       /* ← 改行させない */
   }
-    </style>
+
+  /* 共通のセルサイズ */
+  .freq-grid {
+    display: grid;
+    gap: 2px;
+    align-items: center;
+    justify-items: center;
+  }
+
+  .freq-grid-6 {
+    grid-template-columns: repeat(6, 1.6em);
+    grid-template-rows: 1.6em 1.6em 1.6em;
+  }
+
+  .freq-grid-4 {
+    grid-template-columns: repeat(4, 1.6em);
+    grid-template-rows: 1.6em 1.6em 1.6em;
+  }
+
+  .freq-grid button,
+  .freq-grid .digit,
+  .freq-grid .empty-cell {
+    width: 1.6em;
+    height: 1.6em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .freq-grid .digit-value {
+    font-weight: bold;
+    font-size: 1.1em;
+  }
+
+  .empty-cell {
+    width: 1.6em;
+    height: 1.6em;
+  }
+
+    .decimal-point { text-align: center; }
+
+    .volume-control { margin-top: 0.5em; }
+    .volume-display { margin-left: 0.5em; }
+
+    /* ステレオ連続波モードのレイアウト（ユーザー指定） */
+    .stereo-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 0.5em;
+      border: 1px solid #aaa;
+      padding: 0.5em;
+    }
+    .channel {
+      flex: 1 1 45%;
+      min-width: 300px;
+      border: 1px solid #bbb;
+      padding: 0.5em;
+      margin: 0.5em;
+    }
+    .channel h3 { font-size: 1.1em; margin-top: 0; }
+    .wave-select { margin: 0.5em 0; }
+    .wave-select label { margin-right: 1em; }
+    .channel .volume-control { margin-top: 0.5em; }
+    .channel .volume-display { margin-left: 0.5em; }
+
+    .disabled { opacity: 0.5; pointer-events: none; }
+
+    .param-label {
+      font-size: 0.9em;
+      margin-bottom: 0.1em;
+    }
+
+
+    /* スマホ向け：ステレオパネル縦並び */
+    @media (max-width: 600px) {
+      .stereo-container { flex-direction: column; }
+      .channel { width: 100%; min-width: 0; }
+      .tabs { flex-direction: column; }
+    }
+  </style>
 </head>
 <body>
+<h1>高校物理実験用 音源生成ツール</h1>
 
 <div class="tabs">
-    <button class="tab active" data-tab="mode1">単発パルス波</button>
-    <button class="tab" data-tab="mode2">ホワイトノイズ</button>
-    <button class="tab" data-tab="mode3">正弦波（ステレオ）</button>
-    <button class="tab" data-tab="mode4">任意パルス波</button>
+  <button class="tab-button active" data-target="mode1">単発パルス波</button>
+  <button class="tab-button" data-target="mode2">ホワイトノイズ</button>
+  <button class="tab-button" data-target="mode3">連続波（正弦波ほか）</button>
+  <button class="tab-button" data-target="mode4">任意パルス</button>
 </div>
 
-<div id="mode1" class="tab-content active">
-    <h2>単発パルス波生成</h2>
-    <label>周波数: <input id="pulseFreqSlider" type="range" min="250" max="2000" value="1000"> <input id="pulseFreqInput" type="number" min="250" max="2000" value="1000"> Hz</label>
-    <label>生成時間: <input id="pulseWidthSlider" type="range" min="1" max="30" value="10"> <input id="pulseWidthInput" type="number" min="1" max="30" value="10"> ms</label>
+<!-- モード1: 単発パルス波 -->
+<div id="mode1" class="mode-panel active">
+  <h2>単発パルス波</h2>
+
+  <!-- 周波数 -->
+  <div class="control-group">
+    <div class="param-label">周波数</div>
+    <div class="freq-display">
+      <div class="freq-grid freq-grid-6" id="m1-freq-grid">
+        <!-- ＋行 -->
+        <button class="m1-freq-plus" data-digit="1000">+</button>
+        <button class="m1-freq-plus" data-digit="100">+</button>
+        <button class="m1-freq-plus" data-digit="10">+</button>
+        <button class="m1-freq-plus" data-digit="1">+</button>
+        <span class="empty-cell"></span>
+        <button class="m1-freq-plus" data-digit="0.1">+</button>
+        <!-- 数字行 -->
+        <span class="digit digit-value" id="m1-freq-thousands">1</span>
+        <span class="digit digit-value" id="m1-freq-hundreds">0</span>
+        <span class="digit digit-value" id="m1-freq-tens">0</span>
+        <span class="digit digit-value" id="m1-freq-ones">0</span>
+        <span class="digit" id="m1-freq-dot">.</span>
+        <span class="digit digit-value" id="m1-freq-tenths">0</span>
+        <!-- −行 -->
+        <button class="m1-freq-minus" data-digit="1000">-</button>
+        <button class="m1-freq-minus" data-digit="100">-</button>
+        <button class="m1-freq-minus" data-digit="10">-</button>
+        <button class="m1-freq-minus" data-digit="1">-</button>
+        <span class="empty-cell"></span>
+        <button class="m1-freq-minus" data-digit="0.1">-</button>
+      </div>
+      <span class="freq-unit">Hz</span>
+    </div>
+  </div>
+
+
+  <div class="control-group">
+  <div class="param-label">パルス幅</div>
+  <div class="freq-display">
+    <div class="freq-grid freq-grid-4" id="m1-width-grid">
+      <!-- ＋行（4セル） -->
+      <button class="m1-width-plus" data-digit="10">+</button>
+      <button class="m1-width-plus" data-digit="1">+</button>
+      <span class="empty-cell"></span>
+      <button class="m1-width-plus" data-digit="0.1">+</button>
+
+      <!-- 数字行（4セル：0 1 . 0）-->
+      <span class="digit digit-value" id="m1-width-tens">0</span>
+      <span class="digit digit-value" id="m1-width-ones">1</span>
+      <span class="digit" id="m1-width-dot">.</span>
+      <span class="digit digit-value" id="m1-width-tenths">0</span>
+
+      <!-- −行（4セル） -->
+      <button class="m1-width-minus" data-digit="10">-</button>
+      <button class="m1-width-minus" data-digit="1">-</button>
+      <span class="empty-cell"></span>
+      <button class="m1-width-minus" data-digit="0.1">-</button>
+    </div>
+    <span class="freq-unit">ms</span>
+  </div>
+</div>
+
+
+  <button id="m1-play" class="control-button">再生</button>
+  <div class="volume-control">
+    <label for="m1-volume">音量:</label>
+    <input type="range" id="m1-volume" min="0" max="100" value="10">
+    <span id="m1-volume-display" class="volume-display">10%</span>
+    <button id="m1-mute" class="mute-button">ミュート</button>
+  </div>
+</div>
+
+<!-- モード2: ホワイトノイズ -->
+<div id="mode2" class="mode-panel">
+  <h2>ホワイトノイズ</h2>
+  <div class="control-group">
+    <button id="m2-start">開始</button>
+    <button id="m2-stop">停止</button>
+  </div>
+  <div class="volume-control">
+    <label for="m2-volume">音量:</label>
+    <input type="range" id="m2-volume" min="0" max="100" value="10">
+    <span id="m2-vol-val" class="volume-display">10%</span>
+    <button id="m2-mute" class="mute-button">ミュート</button>
+  </div>
+</div>
+
+<!-- モード3: 正弦波（旧レイアウト踏襲ステレオ版） -->
+<div id="mode3" class="mode-panel mode-section">
+  <h2>正弦波</h2>
+  <!-- モノラル/ステレオ 切替スイッチ -->
+  <div>
+    <label><input type="radio" name="m3-channel-mode" value="mono" id="m3-mono" checked> モノラル</label>
+    <label><input type="radio" name="m3-channel-mode" value="stereo" id="m3-stereo"> ステレオ</label>
+  </div>
+
+  <div class="stereo-container">
+    <!-- 左チャンネル制御 -->
+<div class="channel" id="left-channel">
+  <h3>左チャンネル</h3>
+
+  <!-- ★ この freq-display ブロックを入れる（元の右用m3-right-gridは削除） -->
+  <div class="freq-display">
+    <div class="freq-grid freq-grid-6" id="m3-left-grid">
+      <!-- プラスボタン行：千 / 百 / 十 / 一 / . / 0.1 -->
+      <button class="m3-left-plus" data-digit="1000">+</button>
+      <button class="m3-left-plus" data-digit="100">+</button>
+      <button class="m3-left-plus" data-digit="10">+</button>
+      <button class="m3-left-plus" data-digit="1">+</button>
+      <span class="empty-cell"></span>
+      <button class="m3-left-plus" data-digit="0.1">+</button>
+
+      <!-- 数値表示行（実際の値はJSの updateM3Digits で上書きされます） -->
+      <span class="digit digit-value" id="m3-left-thousands">0</span>
+      <span class="digit digit-value" id="m3-left-hundreds">4</span>
+      <span class="digit digit-value" id="m3-left-tens">4</span>
+      <span class="digit digit-value" id="m3-left-ones">0</span>
+      <span class="digit" id="m3-left-dot">.</span>
+      <span class="digit digit-value" id="m3-left-tenths">0</span>
+
+      <!-- マイナスボタン行 -->
+      <button class="m3-left-minus" data-digit="1000">-</button>
+      <button class="m3-left-minus" data-digit="100">-</button>
+      <button class="m3-left-minus" data-digit="10">-</button>
+      <button class="m3-left-minus" data-digit="1">-</button>
+      <span class="empty-cell"></span>
+      <button class="m3-left-minus" data-digit="0.1">-</button>
+    </div>
+    <span class="freq-unit">Hz</span>
+  </div>
+  <!-- ★ ここから下（スライダー・波形選択・音量等）は今のコードのままでOK -->
+  <div class="control-group">
+    <input type="range" id="m3-left-slider" min="0" max="1000" value="440">
     <div>
-        <button id="pulsePlayBtn">再生</button>
+      <label><input type="radio" name="m3-left-range" value="1000" checked> 0-1000Hz</label>
+      <label><input type="radio" name="m3-left-range" value="4000"> 0-4000Hz</label>
+      <label><input type="radio" name="m3-left-range" value="8000"> 0-8000Hz</label>
+      <label><input type="radio" name="m3-left-range" value="20000"> 0-20000Hz</label>
     </div>
-    <label>音量: <input id="pulseVolumeSlider" type="range" min="1" max="100" value="10">% </label>
-    <button id="pulseMuteBtn">ミュート</button>
+  </div>
+
+  <div class="wave-select">
+    波形:
+    <label><input type="radio" name="m3-left-wave" value="sine" checked> 正弦波</label>
+    <label><input type="radio" name="m3-left-wave" value="square"> 矩形波</label>
+    <label><input type="radio" name="m3-left-wave" value="sawtooth"> ノコギリ波</label>
+    <label><input type="radio" name="m3-left-wave" value="triangle"> 三角波</label>
+  </div>
+
+  <button id="m3-left-toggle" class="control-button">再生</button>
+  <div class="volume-control">
+    <label for="m3-left-volume">音量:</label>
+    <input type="range" id="m3-left-volume" min="0" max="100" value="10">
+    <span id="m3-left-volume-display" class="volume-display">10%</span>
+    <button id="m3-left-mute" class="mute-button">ミュート</button>
+  </div>
 </div>
 
-<div id="mode2" class="tab-content">
-    <h2>ホワイトノイズ生成</h2>
-    <div>
-        <button id="noiseStartBtn">開始</button>
-        <button id="noiseStopBtn">停止</button>
-    </div>
-    <label>音量: <input id="noiseVolumeSlider" type="range" min="1" max="100" value="10">% </label>
-    <button id="noiseMuteBtn">ミュート</button>
+
+    <!-- 右チャンネル制御 -->
+    <div class="channel" id="right-channel">
+      <h3>右チャンネル</h3>
+      <div class="freq-display">
+  <div class="freq-grid freq-grid-6" id="m3-right-grid">
+    <!-- プラスボタン行：千 / 百 / 十 / 一 / . / 0.1 -->
+    <button class="m3-right-plus" data-digit="1000">+</button>
+    <button class="m3-right-plus" data-digit="100">+</button>
+    <button class="m3-right-plus" data-digit="10">+</button>
+    <button class="m3-right-plus" data-digit="1">+</button>
+    <span class="empty-cell"></span>
+    <button class="m3-right-plus" data-digit="0.1">+</button>
+
+    <!-- 数値表示行 -->
+    <span class="digit digit-value" id="m3-right-thousands">0</span>
+    <span class="digit digit-value" id="m3-right-hundreds">4</span>
+    <span class="digit digit-value" id="m3-right-tens">4</span>
+    <span class="digit digit-value" id="m3-right-ones">2</span>
+    <span id="m3-right-dot" class="digit">.</span>
+    <span class="digit digit-value" id="m3-right-tenths">0</span>
+
+    <!-- マイナスボタン行 -->
+    <button class="m3-right-minus" data-digit="1000">-</button>
+    <button class="m3-right-minus" data-digit="100">-</button>
+    <button class="m3-right-minus" data-digit="10">-</button>
+    <button class="m3-right-minus" data-digit="1">-</button>
+    <span class="empty-cell"></span>
+    <button class="m3-right-minus" data-digit="0.1">-</button>
+  </div>
+  <span class="freq-unit">Hz</span>
 </div>
 
-<div id="mode3" class="tab-content">
-    <h2>正弦波生成（ステレオ対応）</h2>
-    <div id="waveTypeSelector">
-  <label>波形タイプの選択：</label><br>
-  <button class="wave-type-btn active" data-type="sine">正弦波</button>
-  <button class="wave-type-btn" data-type="square">矩形波</button>
-  <button class="wave-type-btn" data-type="triangle">三角波</button>
-  <button class="wave-type-btn" data-type="sawtooth">のこぎり波</button>
-</div>
-　　<label>左周波数: <input id="sineFreqLeftSlider" type="range" min="100" max="2000" value="1000"> <input id="sineFreqLeftInput" type="number" value="1000"> Hz</label>
-    <label>右周波数: <input id="sineFreqRightSlider" type="range" min="100" max="2000" value="1000"> <input id="sineFreqRightInput" type="number" value="1000"> Hz</label>
-    <label><input type="checkbox" id="monoToggle"> モノラル (モノラル時は左のみ有効)</label>
-　　<div>
-        <button id="sinePlayBtn">再生</button>
-        <button id="sineStopBtn">停止</button>
-    </div>
-    <label>音量: <input id="sineVolumeSlider" type="range" min="1" max="100" value="10">% </label>
-    <button id="sineMuteBtn">ミュート</button>
 
-    <h3>周波数微調整</h3>
-    <div class="freq-controls">
+      <div class="control-group">
+        <input type="range" id="m3-right-slider" min="0" max="1000" value="442">
         <div>
-            <p>左チャンネル</p>
-            <button class="adjust-button" data-channel="left" data-step="-0.1">-0.1Hz</button>
-            <button class="adjust-button" data-channel="left" data-step="0.1">+0.1Hz</button>
-            <button class="adjust-button" data-channel="left" data-step="-1">-1Hz</button>
-            <button class="adjust-button" data-channel="left" data-step="1">+1Hz</button>
-            <button class="adjust-button" data-channel="left" data-step="-10">-10Hz</button>
-            <button class="adjust-button" data-channel="left" data-step="10">+10Hz</button>
-            <button class="adjust-button" data-channel="left" data-step="-100">-100Hz</button>
-            <button class="adjust-button" data-channel="left" data-step="100">+100Hz</button>
-            <button class="adjust-button" data-channel="left" data-step="*2">×2</button>
-            <button class="adjust-button" data-channel="left" data-step="/2">÷2</button>
+          <label><input type="radio" name="m3-right-range" value="1000" checked> 0-1000Hz</label>
+          <label><input type="radio" name="m3-right-range" value="4000"> 0-4000Hz</label>
+          <label><input type="radio" name="m3-right-range" value="8000"> 0-8000Hz</label>
+          <label><input type="radio" name="m3-right-range" value="20000"> 0-20000Hz</label>
         </div>
-        <div>
-            <p>右チャンネル</p>
-            <button class="adjust-button" data-channel="right" data-step="-0.1">-0.1Hz</button>
-            <button class="adjust-button" data-channel="right" data-step="0.1">+0.1Hz</button>
-            <button class="adjust-button" data-channel="right" data-step="-1">-1Hz</button>
-            <button class="adjust-button" data-channel="right" data-step="1">+1Hz</button>
-            <button class="adjust-button" data-channel="right" data-step="-10">-10Hz</button>
-            <button class="adjust-button" data-channel="right" data-step="10">+10Hz</button>
-            <button class="adjust-button" data-channel="right" data-step="-100">-100Hz</button>
-            <button class="adjust-button" data-channel="right" data-step="100">+100Hz</button>
-            <button class="adjust-button" data-channel="right" data-step="*2">×2</button>
-            <button class="adjust-button" data-channel="right" data-step="/2">÷2</button>
-        </div>
-    </div>
+      </div>
 
-    <h3>プリセットジャンプ</h3>
-    <div class="preset-buttons">
-        <div>
-            <p>左チャンネル</p>
-            <button class="preset-button" data-channel="left" data-value="20">20Hz</button>
-            <button class="preset-button" data-channel="left" data-value="31.5">31.5Hz</button>
-            <button class="preset-button" data-channel="left" data-value="63">63Hz</button>
-            <button class="preset-button" data-channel="left" data-value="125">125Hz</button>
-            <button class="preset-button" data-channel="left" data-value="250">250Hz</button>
-            <button class="preset-button" data-channel="left" data-value="500">500Hz</button>
-            <button class="preset-button" data-channel="left" data-value="1000">1kHz</button>
-            <button class="preset-button" data-channel="left" data-value="2000">2kHz</button>
-            <button class="preset-button" data-channel="left" data-value="4000">4kHz</button>
-            <button class="preset-button" data-channel="left" data-value="6400">6.4kHz</button>
-            <button class="preset-button" data-channel="left" data-value="8000">8kHz</button>
-            <button class="preset-button" data-channel="left" data-value="10000">10kHz</button>
-            <button class="preset-button" data-channel="left" data-value="16000">16kHz</button>
-            <button class="preset-button" data-channel="left" data-value="18000">18kHz</button>
-            <button class="preset-button" data-channel="left" data-value="19000">19kHz</button>
-            <button class="preset-button" data-channel="left" data-value="20000">20kHz</button>
-        </div>
-        <div>
-            <p>右チャンネル</p>
-            <button class="preset-button" data-channel="right" data-value="20">20Hz</button>
-            <button class="preset-button" data-channel="right" data-value="31.5">31.5Hz</button>
-            <button class="preset-button" data-channel="right" data-value="63">63Hz</button>
-            <button class="preset-button" data-channel="right" data-value="125">125Hz</button>
-            <button class="preset-button" data-channel="right" data-value="250">250Hz</button>
-            <button class="preset-button" data-channel="right" data-value="500">500Hz</button>
-            <button class="preset-button" data-channel="right" data-value="1000">1kHz</button>
-            <button class="preset-button" data-channel="right" data-value="2000">2kHz</button>
-            <button class="preset-button" data-channel="right" data-value="4000">4kHz</button>
-            <button class="preset-button" data-channel="right" data-value="6400">6.4kHz</button>
-            <button class="preset-button" data-channel="right" data-value="8000">8kHz</button>
-            <button class="preset-button" data-channel="right" data-value="10000">10kHz</button>
-            <button class="preset-button" data-channel="right" data-value="16000">16kHz</button>
-            <button class="preset-button" data-channel="right" data-value="18000">18kHz</button>
-            <button class="preset-button" data-channel="right" data-value="19000">19kHz</button>
-            <button class="preset-button" data-channel="right" data-value="20000">20kHz</button>
-        </div>
+      <div class="wave-select">
+        波形:
+        <label><input type="radio" name="m3-right-wave" value="sine" checked> 正弦波</label>
+        <label><input type="radio" name="m3-right-wave" value="square"> 矩形波</label>
+        <label><input type="radio" name="m3-right-wave" value="sawtooth"> ノコギリ波</label>
+        <label><input type="radio" name="m3-right-wave" value="triangle"> 三角波</label>
+      </div>
+
+      <button id="m3-right-toggle" class="control-button">再生</button>
+      <div class="volume-control">
+        <label for="m3-right-volume">音量:</label>
+        <input type="range" id="m3-right-volume" min="0" max="100" value="10">
+        <span id="m3-right-volume-display" class="volume-display">10%</span>
+        <button id="m3-right-mute" class="mute-button">ミュート</button>
+      </div>
     </div>
+  </div>
 </div>
 
-<div id="mode4" class="tab-content">
-    <h2>任意パルス幅・任意周期パルス生成</h2>
-    <label>パルス幅: <input id="arbPulseWidthSlider" type="range" min="0.1" max="10" step="0.1" value="1"> <input id="arbPulseWidthInput" type="number" min="0.1" max="10" step="0.1" value="0.1"> ms</label>
-    <label>周波数: <input id="arbPulseFreqSlider" type="range" min="0.1" max="1000" step="0.1" value="10"> <input id="arbPulseFreqInput" type="number" min="0.1" max="1000" step="0.1" value="30"> Hz</label>
-    <div>
-        <button id="arbSingleBtn">単発生成</button>
-        <button id="arbPlayBtn">再生</button>
-        <button id="arbStopBtn">停止</button>
+<!-- モード4: 任意パルス -->
+<div id="mode4" class="mode-panel">
+  <h2>任意パルス</h2>
+
+  <!-- パルス幅（モード4） -->
+  <div class="control-group">
+    <div class="param-label">パルス幅</div>
+    <div class="freq-display">
+      <div class="freq-grid freq-grid-4" id="m4-width-grid">
+        <!-- ＋行 -->
+        <button class="m4-width-plus" data-digit="10">+</button>
+        <button class="m4-width-plus" data-digit="1">+</button>
+        <span class="empty-cell"></span>
+        <button class="m4-width-plus" data-digit="0.1">+</button>
+
+        <!-- 数字行：00.1 -->
+        <span class="digit digit-value" id="m4-width-tens">0</span>
+        <span class="digit digit-value" id="m4-width-ones">0</span>
+        <span class="digit" id="m4-width-dot">.</span>
+        <span class="digit digit-value" id="m4-width-tenths">1</span>
+
+        <!-- −行 -->
+        <button class="m4-width-minus" data-digit="10">-</button>
+        <button class="m4-width-minus" data-digit="1">-</button>
+        <span class="empty-cell"></span>
+        <button class="m4-width-minus" data-digit="0.1">-</button>
+      </div>
+      <span class="freq-unit">ms</span>
     </div>
-    <label>音量: <input id="arbVolumeSlider" type="range" min="1" max="100" value="10">% </label>
-    <button id="arbMuteBtn">ミュート</button>
+  </div>
+
+  <!-- 周波数（モード4） -->
+<div class="control-group">
+  <div class="param-label">周波数</div>
+  <div class="freq-display">
+    <div class="freq-grid freq-grid-6" id="m4-freq-grid">
+      <!-- ＋行 -->
+      <button class="m4-freq-plus" data-digit="1000">+</button>
+      <button class="m4-freq-plus" data-digit="100">+</button>
+      <button class="m4-freq-plus" data-digit="10">+</button>
+      <button class="m4-freq-plus" data-digit="1">+</button>
+      <span class="empty-cell"></span>
+      <button class="m4-freq-plus" data-digit="0.1">+</button>
+      <!-- 数字行 -->
+      <span class="digit digit-value" id="m4-freq-thousands">0</span>
+      <span class="digit digit-value" id="m4-freq-hundreds">0</span>
+      <span class="digit digit-value" id="m4-freq-tens">3</span>
+      <span class="digit digit-value" id="m4-freq-ones">0</span>
+      <span class="digit" id="m4-freq-dot">.</span>
+      <span class="digit digit-value" id="m4-freq-tenths">0</span>
+      <!-- −行 -->
+      <button class="m4-freq-minus" data-digit="1000">-</button>
+      <button class="m4-freq-minus" data-digit="100">-</button>
+      <button class="m4-freq-minus" data-digit="10">-</button>
+      <button class="m4-freq-minus" data-digit="1">-</button>
+      <span class="empty-cell"></span>
+      <button class="m4-freq-minus" data-digit="0.1">-</button>
+    </div>
+    <span class="freq-unit">Hz</span>
+  </div>
+</div>
+
+
+  <button id="m4-single" class="control-button">単発生成</button>
+  <button id="m4-toggle" class="control-button">連続再生</button>
+  <div class="volume-control">
+    <label for="m4-volume">音量:</label>
+    <input type="range" id="m4-volume" min="0" max="100" value="10">
+    <span id="m4-volume-display" class="volume-display">10%</span>
+    <button id="m4-mute" class="mute-button">ミュート</button>
+  </div>
 </div>
 
 <script>
-// Tab functionality
-const tabs = document.querySelectorAll('.tabs button');
-const tabContents = document.querySelectorAll('.tab-content');
-tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        // Deactivate all tabs
-        tabs.forEach(t => t.classList.remove('active'));
-        tabContents.forEach(tc => tc.classList.remove('active'));
-        // Activate selected tab
-        tab.classList.add('active');
-        const target = tab.getAttribute('data-tab');
-        document.getElementById(target).classList.add('active');
-        stopAllAudio(); // stop audio when switching tabs
-    });
-});
-
-// Audio Context
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 const audioCtx = new AudioContext();
 
-// Keep track of sources and timers for stopping
-let activeAudioSources = [];
-let activeIntervals = [];
-let activeTimeouts = [];
-let noiseSource = null;
-let leftOsc = null;
-let rightOsc = null;
+let currentMode = "mode1";
 
-// Stop all audio sources and intervals
-function stopAllAudio() {
-    activeAudioSources.forEach(src => {
-        try { src.stop(); } catch(e) {}
-        try { src.disconnect(); } catch(e) {}
-    });
-    activeAudioSources = [];
-    noiseSource = null;
-    // Stop stereo oscillators
-    if (leftOsc) leftOsc = null;
-    if (rightOsc) rightOsc = null;
-    activeIntervals.forEach(id => clearInterval(id));
-    activeIntervals = [];
-    activeTimeouts.forEach(id => clearTimeout(id));
-    activeTimeouts = [];
-}
-
-// Mode 1: Single Pulse Wave
-const pulseFreqSlider = document.getElementById('pulseFreqSlider');
-const pulseFreqInput = document.getElementById('pulseFreqInput');
-const pulseWidthSlider = document.getElementById('pulseWidthSlider');
-const pulseWidthInput = document.getElementById('pulseWidthInput');
-const pulsePlayBtn = document.getElementById('pulsePlayBtn');
-const pulseVolumeSlider = document.getElementById('pulseVolumeSlider');
-const pulseMuteBtn = document.getElementById('pulseMuteBtn');
-
-let pulseMute = false;
-let pulseGain = audioCtx.createGain();
-pulseGain.gain.value = pulseVolumeSlider.value/100;
-pulseGain.connect(audioCtx.destination);
-
-pulseFreqSlider.addEventListener('input', () => {
-    pulseFreqInput.value = pulseFreqSlider.value;
-});
-pulseFreqInput.addEventListener('input', () => {
-    let val = Math.max(250, Math.min(2000, pulseFreqInput.value));
-    pulseFreqInput.value = val;
-    pulseFreqSlider.value = val;
-});
-pulseWidthSlider.addEventListener('input', () => {
-    pulseWidthInput.value = pulseWidthSlider.value;
-});
-pulseWidthInput.addEventListener('input', () => {
-    let val = Math.max(1, Math.min(30, pulseWidthInput.value));
-    pulseWidthInput.value = val;
-    pulseWidthSlider.value = val;
-});
-pulseVolumeSlider.addEventListener('input', () => {
-    if (!pulseMute) {
-        pulseGain.gain.value = pulseVolumeSlider.value/100;
-    }
-});
-pulseMuteBtn.addEventListener('click', () => {
-    pulseMute = !pulseMute;
-    pulseGain.gain.value = pulseMute ? 0 : pulseVolumeSlider.value/100;
-    pulseMuteBtn.textContent = pulseMute ? 'ミュート解除' : 'ミュート';
-});
-
-pulsePlayBtn.addEventListener('click', () => {
-    const freq = parseFloat(pulseFreqInput.value);
-    const width = parseFloat(pulseWidthInput.value) / 1000; // ms to sec
-    if (!pulseMute && pulseVolumeSlider.value > 0) {
-        const osc = audioCtx.createOscillator();
-        osc.type = 'square';
-        osc.frequency.value = freq;
-        osc.connect(pulseGain);
-        osc.start();
-        osc.stop(audioCtx.currentTime + width);
-        activeAudioSources.push(osc);
-        // Cleanup after stop
-        osc.onended = () => {
-            activeAudioSources = activeAudioSources.filter(s => s !== osc);
-            osc.disconnect();
-        };
-    }
-});
-
-// Mode 2: White Noise
-const noiseStartBtn = document.getElementById('noiseStartBtn');
-const noiseStopBtn = document.getElementById('noiseStopBtn');
-const noiseVolumeSlider = document.getElementById('noiseVolumeSlider');
-const noiseMuteBtn = document.getElementById('noiseMuteBtn');
-
-let noiseMute = false;
-let noiseGain = audioCtx.createGain();
-noiseGain.gain.value = noiseVolumeSlider.value/100;
-noiseGain.connect(audioCtx.destination);
-
-noiseStartBtn.addEventListener('click', () => {
-    if (!noiseSource) {
-        const bufferSize = 2 * audioCtx.sampleRate;
-        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
-        }
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.loop = true;
-        source.connect(noiseGain);
-        source.start();
-        noiseSource = source;
-        activeAudioSources.push(source);
-        source.onended = () => {
-            noiseSource = null;
-        };
-    }
-});
-noiseStopBtn.addEventListener('click', () => {
-    if (noiseSource) {
-        noiseSource.stop();
-        noiseSource.disconnect();
-        activeAudioSources = activeAudioSources.filter(s => s !== noiseSource);
-        noiseSource = null;
-    }
-});
-noiseVolumeSlider.addEventListener('input', () => {
-    if (!noiseMute) {
-        noiseGain.gain.value = noiseVolumeSlider.value/100;
-    }
-});
-noiseMuteBtn.addEventListener('click', () => {
-    noiseMute = !noiseMute;
-    noiseGain.gain.value = noiseMute ? 0 : noiseVolumeSlider.value/100;
-    noiseMuteBtn.textContent = noiseMute ? 'ミュート解除' : 'ミュート';
-});
-
-// Mode 3: Sine Wave Stereo
-const sineFreqLeftSlider = document.getElementById('sineFreqLeftSlider');
-const sineFreqLeftInput = document.getElementById('sineFreqLeftInput');
-const sineFreqRightSlider = document.getElementById('sineFreqRightSlider');
-const sineFreqRightInput = document.getElementById('sineFreqRightInput');
-const monoToggle = document.getElementById('monoToggle');
-const sinePlayBtn = document.getElementById('sinePlayBtn');
-const sineStopBtn = document.getElementById('sineStopBtn');
-const sineVolumeSlider = document.getElementById('sineVolumeSlider');
-const sineMuteBtn = document.getElementById('sineMuteBtn');
-
-let sineMute = false;
-let sineGain = audioCtx.createGain();
-sineGain.gain.value = sineVolumeSlider.value/100;
-sineGain.connect(audioCtx.destination);
-
-sineFreqLeftSlider.addEventListener('input', () => {
-    sineFreqLeftInput.value = sineFreqLeftSlider.value;
-　　 updateSineFrequencies();
-});
-sineFreqLeftInput.addEventListener('input', () => {
-    let val = Math.max(100, Math.min(2000, sineFreqLeftInput.value));
-    sineFreqLeftInput.value = val;
-    sineFreqLeftSlider.value = val;
-　　 updateSineFrequencies();
-});
-sineFreqRightSlider.addEventListener('input', () => {
-    sineFreqRightInput.value = sineFreqRightSlider.value;
-　　 updateSineFrequencies();
-});
-sineFreqRightInput.addEventListener('input', () => {
-    let val = Math.max(100, Math.min(2000, sineFreqRightInput.value));
-    sineFreqRightInput.value = val;
-    sineFreqRightSlider.value = val;
-　　 updateSineFrequencies();
-});
-sineVolumeSlider.addEventListener('input', () => {
-    if (!sineMute) {
-        sineGain.gain.value = sineVolumeSlider.value/100;
-    }
-});
-sineMuteBtn.addEventListener('click', () => {
-    sineMute = !sineMute;
-    sineGain.gain.value = sineMute ? 0 : sineVolumeSlider.value/100;
-    sineMuteBtn.textContent = sineMute ? 'ミュート解除' : 'ミュート';
-});
-
-function updateSineFrequencies() {
-  if (leftOsc) leftOsc.frequency.setValueAtTime(parseFloat(sineFreqLeftInput.value), audioCtx.currentTime);
-  if (rightOsc) rightOsc.frequency.setValueAtTime(parseFloat(sineFreqRightInput.value), audioCtx.currentTime);
-}
-
-let currentWaveType = "sine"; // 初期波形
-
-document.querySelectorAll(".wave-type-btn").forEach(btn => {
+/* ========= タブ切替 ========= */
+document.querySelectorAll(".tab-button").forEach(btn => {
   btn.addEventListener("click", () => {
-    // すべてのボタンから active を外す
-    document.querySelectorAll(".wave-type-btn").forEach(b => b.classList.remove("active"));
-    // 今回選ばれたボタンに active を付ける
-    btn.classList.add("active");
-    // 現在の波形タイプを更新
-    currentWaveType = btn.dataset.type;
-　　const isPlaying = (leftOsc || rightOsc);
-  　if (isPlaying) {
-   　 sineStopBtn.click();      // 停止
-   　 setTimeout(() => {
-   　   sinePlayBtn.click();    // 少し遅らせて再生（停止が完了するのを待つ）
-    　}, 100); // 100ms程度でOK
-　　}
+    const target = btn.dataset.target;
+    if (target === currentMode) return;
+    stopCurrentModeAudio();
+    document.querySelectorAll(".tab-button").forEach(b =>
+      b.classList.toggle("active", b === btn)
+    );
+    document.querySelectorAll(".mode-panel").forEach(p =>
+      p.classList.toggle("active", p.id === target)
+    );
+    currentMode = target;
   });
 });
 
-sinePlayBtn.addEventListener('click', () => {
-    if (!leftOsc && !rightOsc) {
-        const freqL = parseFloat(sineFreqLeftInput.value);
-        const freqR = parseFloat(sineFreqRightInput.value);
-        const merger = audioCtx.createChannelMerger(2);
-        if (!monoToggle.checked) {
-            leftOsc = audioCtx.createOscillator();
-            rightOsc = audioCtx.createOscillator();
-            leftOsc.type = currentWaveType;
-            rightOsc.type = currentWaveType;
-            leftOsc.frequency.value = freqL;
-            rightOsc.frequency.value = freqR;
-            const leftGain = audioCtx.createGain();
-            const rightGain = audioCtx.createGain();
-            leftOsc.connect(leftGain).connect(merger, 0, 0);
-            rightOsc.connect(rightGain).connect(merger, 0, 1);
-            leftOsc.start();
-            rightOsc.start();
-            activeAudioSources.push(leftOsc);
-            activeAudioSources.push(rightOsc);
-            merger.connect(sineGain);
-        } else {
-            leftOsc = audioCtx.createOscillator();
-            leftOsc.type = currentWaveType;
-            leftOsc.frequency.value = freqL;
-            const leftGain = audioCtx.createGain();
-            leftOsc.connect(leftGain).connect(merger, 0, 0);
-            leftOsc.start();
-            activeAudioSources.push(leftOsc);
-            merger.connect(sineGain);
-        }
-        // Cleanup on end
-        const cleanup = (osc) => {
-            osc.onended = () => {
-                activeAudioSources = activeAudioSources.filter(s => s !== osc);
-                osc.disconnect();
-            };
-        };
-        if (leftOsc) cleanup(leftOsc);
-        if (rightOsc) cleanup(rightOsc);
-    }
-});
-
-sineStopBtn.addEventListener('click', () => {
-    [leftOsc, rightOsc].forEach(osc => {
-        if (osc) {
-            osc.stop();
-        }
-    });
-    leftOsc = null;
-    rightOsc = null;
-});
-
-document.querySelectorAll('.adjust-button').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const channel = btn.getAttribute('data-channel');
-        const step = btn.getAttribute('data-step');
-        let inputElem = (channel === 'left') ? sineFreqLeftInput : sineFreqRightInput;
-        let sliderElem = (channel === 'left') ? sineFreqLeftSlider : sineFreqRightSlider;
-        let value = parseFloat(inputElem.value);
-        if (step.startsWith('*')) {
-            value *= parseFloat(step.substring(1));
-        } else if (step.startsWith('/')) {
-            value /= parseFloat(step.substring(1));
-        } else {
-            value += parseFloat(step);
-        }
-        value = Math.max(20, Math.min(20000, value));
-        inputElem.value = value;
-        if (value < 100) {
-            sliderElem.value = 100;
-        } else if (value > 2000) {
-            sliderElem.value = 2000;
-        } else {
-            sliderElem.value = value;
-        }
-　　　　updateSineFrequencies();
-    });
-});
-
-document.querySelectorAll('.preset-button').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const channel = btn.getAttribute('data-channel');
-        const val = parseFloat(btn.getAttribute('data-value'));
-        let inputElem = (channel === 'left') ? sineFreqLeftInput : sineFreqRightInput;
-        let sliderElem = (channel === 'left') ? sineFreqLeftSlider : sineFreqRightSlider;
-        inputElem.value = val;
-        if (val < 100) {
-            sliderElem.value = 100;
-        } else if (val > 2000) {
-            sliderElem.value = 2000;
-        } else {
-            sliderElem.value = val;
-        }
-　　　　updateSineFrequencies();
-    });
-});
-
-// Mode 4: Arbitrary Pulse Wave
-const arbPulseWidthSlider = document.getElementById('arbPulseWidthSlider');
-const arbPulseWidthInput = document.getElementById('arbPulseWidthInput');
-const arbPulseFreqSlider = document.getElementById('arbPulseFreqSlider');
-const arbPulseFreqInput = document.getElementById('arbPulseFreqInput');
-const arbSingleBtn = document.getElementById('arbSingleBtn');
-const arbPlayBtn = document.getElementById('arbPlayBtn');
-const arbStopBtn = document.getElementById('arbStopBtn');
-const arbVolumeSlider = document.getElementById('arbVolumeSlider');
-const arbMuteBtn = document.getElementById('arbMuteBtn');
-
-let arbMute = false;
-let arbGain = audioCtx.createGain();
-arbGain.gain.value = arbVolumeSlider.value/100;
-arbGain.connect(audioCtx.destination);
-
-arbPulseWidthSlider.addEventListener('input', () => {
-    arbPulseWidthInput.value = arbPulseWidthSlider.value;
-});
-arbPulseWidthInput.addEventListener('input', () => {
-    let val = Math.max(0.1, Math.min(10, arbPulseWidthInput.value));
-    arbPulseWidthInput.value = val;
-    arbPulseWidthSlider.value = val;
-});
-arbPulseFreqSlider.addEventListener('input', () => {
-    arbPulseFreqInput.value = arbPulseFreqSlider.value;
-});
-arbPulseFreqInput.addEventListener('input', () => {
-    let val = Math.max(0.1, Math.min(1000, arbPulseFreqInput.value));
-    arbPulseFreqInput.value = val;
-    arbPulseFreqSlider.value = val;
-});
-arbVolumeSlider.addEventListener('input', () => {
-    if (!arbMute) {
-        arbGain.gain.value = arbVolumeSlider.value/100;
-    }
-});
-arbMuteBtn.addEventListener('click', () => {
-    arbMute = !arbMute;
-    arbGain.gain.value = arbMute ? 0 : arbVolumeSlider.value/100;
-    arbMuteBtn.textContent = arbMute ? 'ミュート解除' : 'ミュート';
-});
-
-let arbIntervalId = null;
-let arbTimeoutId = null;
-
-function startArbPulses() {
-    const width = parseFloat(arbPulseWidthInput.value); // ms
-    const freq = parseFloat(arbPulseFreqInput.value); // Hz
-    if (freq <= 0) return;
-    const period = 1000 / freq;
-    arbIntervalId = setInterval(() => {
-        if (!arbMute && arbVolumeSlider.value > 0) {
-            const osc = audioCtx.createOscillator();
-            osc.type = 'square';
-            osc.frequency.value = 1000;
-            osc.connect(arbGain);
-            osc.start();
-            osc.stop(audioCtx.currentTime + (width/1000));
-            activeAudioSources.push(osc);
-            osc.onended = () => {
-                activeAudioSources = activeAudioSources.filter(s => s !== osc);
-                osc.disconnect();
-            };
-        }
-    }, period);
-    activeIntervals.push(arbIntervalId);
-    arbTimeoutId = setTimeout(() => {
-        stopArbPulses();
-    }, 5 * 60 * 1000);
-    activeTimeouts.push(arbTimeoutId);
+function stopCurrentModeAudio() {
+  if (currentMode === "mode2") {
+    stopNoise();
+  } else if (currentMode === "mode3") {
+    stopLeftOsc();
+    stopRightOsc();
+    document.getElementById("m3-left-toggle").textContent  = "再生";
+    document.getElementById("m3-right-toggle").textContent = "再生";
+  } else if (currentMode === "mode4") {
+    stopPulseTrain();
+  }
 }
 
-function stopArbPulses() {
-    if (arbIntervalId) {
-        clearInterval(arbIntervalId);
-        activeIntervals = activeIntervals.filter(id => id !== arbIntervalId);
-        arbIntervalId = null;
-    }
-    if (arbTimeoutId) {
-        clearTimeout(arbTimeoutId);
-        activeTimeouts = activeTimeouts.filter(id => id !== arbTimeoutId);
-        arbTimeoutId = null;
-    }
-    activeAudioSources.forEach(src => {
-        try { src.stop(); } catch(e) {}
-        try { src.disconnect(); } catch(e) {}
-    });
-    activeAudioSources = [];
+// 4桁＋小数（周波数など）
+function updateDigitGrid(prefix, tenths) {
+  if (tenths < 0) tenths = 0;
+  if (tenths > 99999) tenths = 99999;
+  const intPart = Math.floor(tenths / 10);
+  const decPart = tenths % 10;
+  const intStr = intPart.toString().padStart(4, "0");
+  document.getElementById(prefix + "-thousands").textContent = intStr[0];
+  document.getElementById(prefix + "-hundreds").textContent  = intStr[1];
+  document.getElementById(prefix + "-tens").textContent      = intStr[2];
+  document.getElementById(prefix + "-ones").textContent      = intStr[3];
+  document.getElementById(prefix + "-tenths").textContent    = decPart.toString();
 }
 
-arbSingleBtn.addEventListener('click', () => {
-    const width = parseFloat(arbPulseWidthInput.value) / 1000;
-    if (!arbMute && arbVolumeSlider.value > 0) {
-        const osc = audioCtx.createOscillator();
-        osc.type = 'square';
-        osc.frequency.value = 1000;
-        osc.connect(arbGain);
-        osc.start();
-        osc.stop(audioCtx.currentTime + width);
-        activeAudioSources.push(osc);
-        osc.onended = () => {
-            activeAudioSources = activeAudioSources.filter(s => s !== osc);
-            osc.disconnect();
-        };
+// 2桁＋小数（パルス幅用：0.1〜30.0ms など）
+function updateDigitGrid2(prefix, tenths, maxTenths) {
+  if (tenths < 0) tenths = 0;
+  if (typeof maxTenths === "number" && tenths > maxTenths) {
+    tenths = maxTenths;
+  }
+  const intPart = Math.floor(tenths / 10); // 0〜30 など
+  const decPart = tenths % 10;
+  const intStr = intPart.toString().padStart(2, "0");
+  document.getElementById(prefix + "-tens").textContent   = intStr[0];
+  document.getElementById(prefix + "-ones").textContent   = intStr[1];
+  document.getElementById(prefix + "-tenths").textContent = decPart.toString();
+}
+
+
+
+/* ========= モード1: 単発パルス ========= */
+let mode1Gain = audioCtx.createGain();
+mode1Gain.connect(audioCtx.destination);
+let mode1Muted = false;
+let mode1Volume = 0.1;
+mode1Gain.gain.value = mode1Volume;
+
+let mode1FreqTenths  = 10000; // 1000.0 Hz
+let mode1WidthTenths = 10;    // 1.0 ms
+updateDigitGrid("m1-freq",  mode1FreqTenths);
+updateDigitGrid2("m1-width", mode1WidthTenths, 300); // 30.0msまで
+
+let mode4FreqTenths  = 300; // 30.0 Hz
+let mode4WidthTenths = 5;   // 0.5 ms
+updateDigitGrid2("m4-width", mode4WidthTenths, 100); // 10.0msまで
+updateDigitGrid("m4-freq",   mode4FreqTenths);
+
+
+document.querySelectorAll(".m1-freq-plus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit);
+    mode1FreqTenths += Math.round(step * 10);
+    if (mode1FreqTenths > 20000) mode1FreqTenths = 20000;
+    if (mode1FreqTenths < 1000)  mode1FreqTenths = 1000;
+    updateDigitGrid("m1-freq", mode1FreqTenths);
+  });
+});
+document.querySelectorAll(".m1-freq-minus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit);
+    mode1FreqTenths -= Math.round(step * 10);
+    if (mode1FreqTenths > 20000) mode1FreqTenths = 20000;
+    if (mode1FreqTenths < 1000)  mode1FreqTenths = 1000;
+    updateDigitGrid("m1-freq", mode1FreqTenths);
+  });
+});
+
+document.querySelectorAll(".m1-width-plus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit);
+    mode1WidthTenths += Math.round(step * 10);
+    if (mode1WidthTenths > 300) mode1WidthTenths = 300;
+    if (mode1WidthTenths < 1)   mode1WidthTenths = 1;
+    updateDigitGrid2("m1-width", mode1WidthTenths, 300);
+  });
+});
+document.querySelectorAll(".m1-width-minus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit);
+    mode1WidthTenths -= Math.round(step * 10);
+    if (mode1WidthTenths > 300) mode1WidthTenths = 300;
+    if (mode1WidthTenths < 1)   mode1WidthTenths = 1;
+    updateDigitGrid2("m1-width", mode1WidthTenths, 300);
+  });
+});
+
+
+document.getElementById("m1-play").addEventListener("click", () => {
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  const freqHz  = mode1FreqTenths  / 10;
+  const widthMs = mode1WidthTenths / 10;
+  const osc = audioCtx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = freqHz;
+  osc.connect(mode1Gain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + widthMs / 1000);
+  osc.onended = () => osc.disconnect();
+});
+
+const m1VolSlider  = document.getElementById("m1-volume");
+const m1VolDisplay = document.getElementById("m1-volume-display");
+m1VolSlider.addEventListener("input", () => {
+  const p = parseInt(m1VolSlider.value, 10);
+  m1VolDisplay.textContent = p + "%";
+  mode1Volume = p / 100;
+  if (!mode1Muted) mode1Gain.gain.value = mode1Volume;
+});
+document.getElementById("m1-mute").addEventListener("click", () => {
+  const btn = document.getElementById("m1-mute");
+  if (!mode1Muted) {
+    mode1Muted = true;
+    mode1Gain.gain.value = 0;
+    btn.textContent = "ミュート解除";
+  } else {
+    mode1Muted = false;
+    mode1Gain.gain.value = mode1Volume;
+    btn.textContent = "ミュート";
+  }
+});
+
+/* ========= モード2: ホワイトノイズ ========= */
+let m2Gain = audioCtx.createGain();
+m2Gain.connect(audioCtx.destination);
+let m2Volume = 0.1;
+m2Gain.gain.value = m2Volume;
+let m2Muted = false;
+let noiseSource = null;
+
+document.getElementById("m2-start").addEventListener("click", () => {
+  if (noiseSource) stopNoise();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  const channels = 2;
+  const rate = audioCtx.sampleRate;
+  const frames = rate * 2;
+  const buffer = audioCtx.createBuffer(channels, frames, rate);
+  for (let ch = 0; ch < channels; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < frames; i++) {
+      data[i] = Math.random() * 2 - 1;
     }
+  }
+  noiseSource = audioCtx.createBufferSource();
+  noiseSource.buffer = buffer;
+  noiseSource.loop = true;
+  noiseSource.connect(m2Gain);
+  noiseSource.start();
 });
-arbPlayBtn.addEventListener('click', () => {
-    if (!arbIntervalId) {
-        startArbPulses();
+document.getElementById("m2-stop").addEventListener("click", stopNoise);
+
+function stopNoise() {
+  if (noiseSource) {
+    try { noiseSource.stop(); } catch(e) {}
+    noiseSource.disconnect();
+    noiseSource = null;
+  }
+}
+
+const m2VolSlider = document.getElementById("m2-volume");
+const m2VolVal    = document.getElementById("m2-vol-val");
+m2VolSlider.addEventListener("input", () => {
+  const p = parseInt(m2VolSlider.value, 10);
+  m2VolVal.textContent = p + "%";
+  m2Volume = p / 100;
+  if (!m2Muted) m2Gain.gain.value = m2Volume;
+});
+document.getElementById("m2-mute").addEventListener("click", () => {
+  const btn = document.getElementById("m2-mute");
+  if (!m2Muted) {
+    m2Muted = true;
+    m2Gain.gain.value = 0;
+    btn.textContent = "ミュート解除";
+  } else {
+    m2Muted = false;
+    m2Gain.gain.value = m2Volume;
+    btn.textContent = "ミュート";
+  }
+});
+
+/* ========= モード3: 正弦波 ステレオ（指定レイアウト） ========= */
+let leftOsc  = null;
+let rightOsc = null;
+let leftGain  = audioCtx.createGain();
+let rightGain = audioCtx.createGain();
+let leftPanner  = audioCtx.createStereoPanner();
+let rightPanner = audioCtx.createStereoPanner();
+leftGain.connect(leftPanner).connect(audioCtx.destination);
+rightGain.connect(rightPanner).connect(audioCtx.destination);
+let leftVolume  = 0.1;
+let rightVolume = 0.1;
+leftGain.gain.value  = leftVolume;
+rightGain.gain.value = rightVolume;
+leftPanner.pan.value  = 0;   // モノラル初期
+rightPanner.pan.value = 1;
+
+let leftFreq  = 440;
+let rightFreq = 442;
+let leftWave  = "sine";
+let rightWave = "sine";
+let leftMuted  = false;
+let rightMuted = false;
+let leftRangeMax  = 1000;
+let rightRangeMax = 1000;
+
+function updateM3Digits(side) {
+  const freq = side === "left" ? leftFreq : rightFreq;
+
+  // 0〜9999.9Hz の範囲にクリップ（必要なら調整）
+  let f = Math.max(0, Math.min(freq, 9999.9));
+
+  // 整数部と小数第1位を分解
+  let intPart = Math.floor(f);                 // 0〜9999
+  let decPart = Math.round((f - intPart) * 10); // 0〜10 になることがある
+
+  // 例: 439.95Hz → intPart=439, decPart=10 みたいな端数対策
+  if (decPart === 10) {
+    intPart += 1;
+    decPart = 0;
+  }
+
+  const s = intPart.toString().padStart(4, "0"); // 4桁表示
+
+  const ids = side === "left"
+    ? ["m3-left-thousands","m3-left-hundreds","m3-left-tens","m3-left-ones","m3-left-tenths"]
+    : ["m3-right-thousands","m3-right-hundreds","m3-right-tens","m3-right-ones","m3-right-tenths"];
+
+  document.getElementById(ids[0]).textContent = s[0];
+  document.getElementById(ids[1]).textContent = s[1];
+  document.getElementById(ids[2]).textContent = s[2];
+  document.getElementById(ids[3]).textContent = s[3];
+  document.getElementById(ids[4]).textContent = decPart.toString();
+}
+
+
+updateM3Digits("left");
+updateM3Digits("right");
+document.getElementById("m3-left-slider").value  = leftFreq;
+document.getElementById("m3-right-slider").value = rightFreq;
+
+/* モノラル／ステレオ切替 */
+document.getElementById("m3-mono").addEventListener("change", e => {
+  if (!e.target.checked) return;
+  // モノラル: 左だけ使う・センター
+  stopRightOsc();
+  document.getElementById("right-channel").classList.add("disabled");
+  leftPanner.pan.value = 0;
+});
+document.getElementById("m3-stereo").addEventListener("change", e => {
+  if (!e.target.checked) return;
+  // ステレオ: 左右別々
+  document.getElementById("right-channel").classList.remove("disabled");
+  leftPanner.pan.value  = -1;
+  rightPanner.pan.value = 1;
+});
+
+/* 左周波数 ＋／－ */
+document.querySelectorAll(".m3-left-plus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit, 10);
+    leftFreq += step;
+    if (leftFreq < 0) leftFreq = 0;
+    if (leftFreq > leftRangeMax) leftFreq = leftRangeMax;
+    updateM3Digits("left");
+    document.getElementById("m3-left-slider").value = leftFreq;
+    if (leftOsc) leftOsc.frequency.setValueAtTime(leftFreq, audioCtx.currentTime);
+  });
+});
+document.querySelectorAll(".m3-left-minus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit, 10);
+    leftFreq -= step;
+    if (leftFreq < 0) leftFreq = 0;
+    if (leftFreq > leftRangeMax) leftFreq = leftRangeMax;
+    updateM3Digits("left");
+    document.getElementById("m3-left-slider").value = leftFreq;
+    if (leftOsc) leftOsc.frequency.setValueAtTime(leftFreq, audioCtx.currentTime);
+  });
+});
+
+/* 右周波数 ＋／－ */
+document.querySelectorAll(".m3-right-plus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit, 10);
+    rightFreq += step;
+    if (rightFreq < 0) rightFreq = 0;
+    if (rightFreq > rightRangeMax) rightFreq = rightRangeMax;
+    updateM3Digits("right");
+    document.getElementById("m3-right-slider").value = rightFreq;
+    if (rightOsc) rightOsc.frequency.setValueAtTime(rightFreq, audioCtx.currentTime);
+  });
+});
+document.querySelectorAll(".m3-right-minus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit, 10);
+    rightFreq -= step;
+    if (rightFreq < 0) rightFreq = 0;
+    if (rightFreq > rightRangeMax) rightFreq = rightRangeMax;
+    updateM3Digits("right");
+    document.getElementById("m3-right-slider").value = rightFreq;
+    if (rightOsc) rightOsc.frequency.setValueAtTime(rightFreq, audioCtx.currentTime);
+  });
+});
+
+/* 左レンジ */
+document.querySelectorAll('input[name="m3-left-range"]').forEach(r => {
+  r.addEventListener("change", () => {
+    if (!r.checked) return;
+    leftRangeMax = parseInt(r.value, 10);
+    const slider = document.getElementById("m3-left-slider");
+    slider.max = leftRangeMax;
+    if (leftFreq > leftRangeMax) {
+      leftFreq = leftRangeMax;
+      slider.value = leftFreq;
+      updateM3Digits("left");
+      if (leftOsc) leftOsc.frequency.setValueAtTime(leftFreq, audioCtx.currentTime);
     }
+  });
 });
-arbStopBtn.addEventListener('click', () => {
-    stopArbPulses();
+
+/* 右レンジ */
+document.querySelectorAll('input[name="m3-right-range"]').forEach(r => {
+  r.addEventListener("change", () => {
+    if (!r.checked) return;
+    rightRangeMax = parseInt(r.value, 10);
+    const slider = document.getElementById("m3-right-slider");
+    slider.max = rightRangeMax;
+    if (rightFreq > rightRangeMax) {
+      rightFreq = rightRangeMax;
+      slider.value = rightFreq;
+      updateM3Digits("right");
+      if (rightOsc) rightOsc.frequency.setValueAtTime(rightFreq, audioCtx.currentTime);
+    }
+  });
 });
+
+/* 左スライダー */
+document.getElementById("m3-left-slider").addEventListener("input", e => {
+  leftFreq = parseFloat(e.target.value);
+  if (leftOsc) leftOsc.frequency.setValueAtTime(leftFreq, audioCtx.currentTime);
+  updateM3Digits("left");
+});
+/* 右スライダー */
+document.getElementById("m3-right-slider").addEventListener("input", e => {
+  rightFreq = parseFloat(e.target.value);
+  if (rightOsc) rightOsc.frequency.setValueAtTime(rightFreq, audioCtx.currentTime);
+  updateM3Digits("right");
+});
+
+/* 波形選択 */
+document.querySelectorAll('input[name="m3-left-wave"]').forEach(r => {
+  r.addEventListener("change", () => {
+    if (!r.checked) return;
+    leftWave = r.value;
+    if (leftOsc) leftOsc.type = leftWave;
+  });
+});
+document.querySelectorAll('input[name="m3-right-wave"]').forEach(r => {
+  r.addEventListener("change", () => {
+    if (!r.checked) return;
+    rightWave = r.value;
+    if (rightOsc) rightOsc.type = rightWave;
+  });
+});
+
+/* 左再生/停止 */
+document.getElementById("m3-left-toggle").addEventListener("click", () => {
+  const btn = document.getElementById("m3-left-toggle");
+  if (!leftOsc) {
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    leftOsc = audioCtx.createOscillator();
+    leftOsc.type = leftWave;
+    leftOsc.frequency.value = leftFreq;
+    leftOsc.connect(leftGain);
+    // モノラルならセンター、ステレオなら左
+    leftPanner.pan.value = document.getElementById("m3-stereo").checked ? -1 : 0;
+    leftOsc.start();
+    leftOsc.onended = () => { leftOsc.disconnect(); leftOsc = null; };
+    btn.textContent = "停止";
+  } else {
+    stopLeftOsc();
+    btn.textContent = "再生";
+  }
+});
+function stopLeftOsc() {
+  if (leftOsc) {
+    try { leftOsc.stop(); } catch(e) {}
+  }
+}
+
+/* 右再生/停止 */
+document.getElementById("m3-right-toggle").addEventListener("click", () => {
+  const btn = document.getElementById("m3-right-toggle");
+  if (!rightOsc) {
+    if (!document.getElementById("m3-stereo").checked) return; // モノラル時は無効
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    rightOsc = audioCtx.createOscillator();
+    rightOsc.type = rightWave;
+    rightOsc.frequency.value = rightFreq;
+    rightOsc.connect(rightGain);
+    rightPanner.pan.value = 1;
+    rightOsc.start();
+    rightOsc.onended = () => { rightOsc.disconnect(); rightOsc = null; };
+    btn.textContent = "停止";
+  } else {
+    stopRightOsc();
+    btn.textContent = "再生";
+  }
+});
+function stopRightOsc() {
+  if (rightOsc) {
+    try { rightOsc.stop(); } catch(e) {}
+  }
+}
+
+/* 音量・ミュート（左） */
+const m3LeftVolSlider  = document.getElementById("m3-left-volume");
+const m3LeftVolDisplay = document.getElementById("m3-left-volume-display");
+m3LeftVolSlider.addEventListener("input", () => {
+  const p = parseInt(m3LeftVolSlider.value, 10);
+  m3LeftVolDisplay.textContent = p + "%";
+  leftVolume = p / 100;
+  if (!leftMuted) leftGain.gain.value = leftVolume;
+});
+document.getElementById("m3-left-mute").addEventListener("click", () => {
+  const btn = document.getElementById("m3-left-mute");
+  if (!leftMuted) {
+    leftMuted = true;
+    leftGain.gain.value = 0;
+    btn.textContent = "ミュート解除";
+  } else {
+    leftMuted = false;
+    leftGain.gain.value = leftVolume;
+    btn.textContent = "ミュート";
+  }
+});
+
+/* 音量・ミュート（右） */
+const m3RightVolSlider  = document.getElementById("m3-right-volume");
+const m3RightVolDisplay = document.getElementById("m3-right-volume-display");
+m3RightVolSlider.addEventListener("input", () => {
+  const p = parseInt(m3RightVolSlider.value, 10);
+  m3RightVolDisplay.textContent = p + "%";
+  rightVolume = p / 100;
+  if (!rightMuted) rightGain.gain.value = rightVolume;
+});
+document.getElementById("m3-right-mute").addEventListener("click", () => {
+  const btn = document.getElementById("m3-right-mute");
+  if (!rightMuted) {
+    rightMuted = true;
+    rightGain.gain.value = 0;
+    btn.textContent = "ミュート解除";
+  } else {
+    rightMuted = false;
+    rightGain.gain.value = rightVolume;
+    btn.textContent = "ミュート";
+  }
+});
+
+/* ========= モード4: 任意パルス（バッファループ版） ========= */
+let mode4Gain = audioCtx.createGain();
+mode4Gain.connect(audioCtx.destination);
+let mode4Muted  = false;
+let mode4Volume = 0.1;
+mode4Gain.gain.value = mode4Volume;
+
+
+// 連続再生用
+let mode4Running        = false;
+let mode4Source         = null;
+let mode4AutoStopTimeout = null;
+
+/* --- パラメータ変更ハンドラ（＋/−） --- */
+document.querySelectorAll(".m4-width-plus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit);
+    mode4WidthTenths += Math.round(step * 10);
+    if (mode4WidthTenths > 100) mode4WidthTenths = 100; // 10.0 ms
+    if (mode4WidthTenths < 1)   mode4WidthTenths = 1;   // 0.1 ms
+    updateDigitGrid2("m4-width", mode4WidthTenths, 100);
+    restartMode4IfRunning();
+  });
+});
+document.querySelectorAll(".m4-width-minus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit);
+    mode4WidthTenths -= Math.round(step * 10);
+    if (mode4WidthTenths > 100) mode4WidthTenths = 100;
+    if (mode4WidthTenths < 1)   mode4WidthTenths = 1;
+    updateDigitGrid2("m4-width", mode4WidthTenths, 100);
+    restartMode4IfRunning();
+  });
+});
+
+document.querySelectorAll(".m4-freq-plus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit);
+    mode4FreqTenths += Math.round(step * 10);
+    if (mode4FreqTenths > 10000) mode4FreqTenths = 10000; // 1000.0 Hz
+    if (mode4FreqTenths < 1)     mode4FreqTenths = 1;     // 0.1 Hz
+    updateDigitGrid("m4-freq", mode4FreqTenths);
+    restartMode4IfRunning();
+  });
+});
+document.querySelectorAll(".m4-freq-minus").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const step = parseFloat(btn.dataset.digit);
+    mode4FreqTenths -= Math.round(step * 10);
+    if (mode4FreqTenths > 10000) mode4FreqTenths = 10000;
+    if (mode4FreqTenths < 1)     mode4FreqTenths = 1;
+    updateDigitGrid("m4-freq", mode4FreqTenths);
+    restartMode4IfRunning();
+  });
+});
+
+/* --- 単発生成（従来どおり ConstantSource） --- */
+document.getElementById("m4-single").addEventListener("click", () => {
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  const widthMs = mode4WidthTenths / 10;
+  const src = audioCtx.createConstantSource();
+  src.offset.value = 1;
+  src.connect(mode4Gain);
+  src.start();
+  src.stop(audioCtx.currentTime + widthMs / 1000);
+});
+
+/* --- 連続再生トグル --- */
+document.getElementById("m4-toggle").addEventListener("click", () => {
+  if (!mode4Running) {
+    startMode4Continuous();
+  } else {
+    stopPulseTrain();
+  }
+});
+
+/* --- 連続パルス用 AudioBufferSource を作る --- */
+function createMode4BufferSource() {
+  const freqHz  = mode4FreqTenths / 10;   // [Hz]
+  const widthMs = mode4WidthTenths / 10;  // [ms]
+  if (freqHz <= 0) return null;
+
+  const sampleRate = audioCtx.sampleRate;
+  const periodSec  = 1 / freqHz;
+  let periodSamples = Math.round(sampleRate * periodSec);
+  if (periodSamples < 1) periodSamples = 1;
+
+  const widthSec = widthMs / 1000;
+  let widthSamples = Math.round(sampleRate * widthSec);
+  if (widthSamples < 1) widthSamples = 1;
+  if (widthSamples > periodSamples) widthSamples = periodSamples;
+
+  // 1周期ぶんのパルス波バッファ（0〜widthSamples-1 が 1.0、それ以外 0.0）
+  const buffer = audioCtx.createBuffer(1, periodSamples, sampleRate);
+  const data   = buffer.getChannelData(0);
+  for (let i = 0; i < widthSamples; i++) {
+    data[i] = 1.0;
+  }
+  for (let i = widthSamples; i < periodSamples; i++) {
+    data[i] = 0.0;
+  }
+
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  src.loop   = true;
+  src.connect(mode4Gain);
+  src.onended = () => {
+    src.disconnect();
+    if (mode4Source === src) {
+      mode4Source = null;
+    }
+  };
+  return src;
+}
+
+/* --- 連続再生開始 --- */
+function startMode4Continuous() {
+  if (audioCtx.state === "suspended") audioCtx.resume();
+
+  // 既存ソースを止める
+  if (mode4Source) {
+    try { mode4Source.stop(); } catch (e) {}
+    mode4Source.disconnect();
+    mode4Source = null;
+  }
+
+  const src = createMode4BufferSource();
+  if (!src) return;
+
+  mode4Source  = src;
+  mode4Running = true;
+  src.start();
+
+  const btn = document.getElementById("m4-toggle");
+  if (btn) btn.textContent = "停止";
+
+  // 安全のため 5分で自動停止
+  if (mode4AutoStopTimeout) {
+    clearTimeout(mode4AutoStopTimeout);
+    mode4AutoStopTimeout = null;
+  }
+  mode4AutoStopTimeout = setTimeout(() => {
+    stopPulseTrain();
+  }, 300000);
+}
+
+/* --- パラメータ変更時に再スタート --- */
+function restartMode4IfRunning() {
+  if (!mode4Running) return;
+  startMode4Continuous();
+}
+
+/* --- 連続再生停止 --- */
+function stopPulseTrain() {
+  if (mode4Source) {
+    try { mode4Source.stop(); } catch (e) {}
+    mode4Source.disconnect();
+    mode4Source = null;
+  }
+  mode4Running = false;
+
+  if (mode4AutoStopTimeout) {
+    clearTimeout(mode4AutoStopTimeout);
+    mode4AutoStopTimeout = null;
+  }
+
+  const btn = document.getElementById("m4-toggle");
+  if (btn) btn.textContent = "連続再生";
+}
+
+/* --- 音量・ミュート --- */
+const m4VolSlider  = document.getElementById("m4-volume");
+const m4VolDisplay = document.getElementById("m4-volume-display");
+m4VolSlider.addEventListener("input", () => {
+  const p = parseInt(m4VolSlider.value, 10);
+  m4VolDisplay.textContent = p + "%";
+  mode4Volume = p / 100;
+  if (!mode4Muted) mode4Gain.gain.value = mode4Volume;
+});
+document.getElementById("m4-mute").addEventListener("click", () => {
+  const btn = document.getElementById("m4-mute");
+  if (!mode4Muted) {
+    mode4Muted = true;
+    mode4Gain.gain.value = 0;
+    btn.textContent = "ミュート解除";
+  } else {
+    mode4Muted = false;
+    mode4Gain.gain.value = mode4Volume;
+    btn.textContent = "ミュート";
+  }
+});
+
 </script>
-
 </body>
 </html>
